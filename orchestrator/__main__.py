@@ -1,6 +1,8 @@
 from time import sleep
 import inspect
 from . import skill_manager
+import pyttsx3
+from colorama import Fore, Style
 # from ipcqueue import posixmq
 # from ipcqueue.serializers import RawSerializer
 
@@ -11,7 +13,7 @@ class TempMq:
     if self.call == 1:
       return 'Hey Wilson'
     if self.call == 2:
-      return 'Can you please play `Can You Hear The Music` from the Oppenheimer Soundtrack on Spotify? WTF'
+      return 'What is the time?'
     if self.call == 3:
       return '[SILENCE]'
 
@@ -21,29 +23,25 @@ class TempMq:
   def qsize(self):
     return 3 - self.call
 
-location = 'temp'
 mq = TempMq()
-# mq = posixmq.Queue(location, serializer=RawSerializer)    
+# mq = posixmq.Queue('/wilsonQueue', serializer=RawSerializer)
+
+skill_manager = skill_manager.SkillManager()
+engine = pyttsx3.init()
 
 class Orchestrator:
   state = 'idle'
   prompt = ''
-  skill_manager = skill_manager.SkillManager()
 
   def start(self):
     while True:
-      print('State: ', self.state)
-      if self.state != 'process' and mq.qsize() > 0:
+      self.print_state()
+      if self.state != 'processing' and mq.qsize() > 0:
         self.read_message()
-      else:
-        print('Prompt: ', self.prompt)
-        skill = self.skill_manager.check_skills(self.prompt)
-        if skill:
-          skill.run()
-        # skills .run_task(self.prompt)
-        self.state = 'idle'
+      elif self.state == 'processing':
+        self.execute_prompt()
         break
-      sleep(0.5)
+      sleep(4)
     
   def read_message(self):
     msg = mq.get().lower()
@@ -58,8 +56,27 @@ class Orchestrator:
     if '[silence]' in msg:
       self.state = 'processing'
 
-  def task_or_llm(self):
-    pass
+  def execute_prompt(self):
+    print(f'Prompt Debug:\n{Style.DIM}{self.prompt}\n{Style.RESET_ALL}')
+    skill = skill_manager.check_skills(self.prompt)
+    if skill:
+      print('Executing Skill..')
+      engine.say(skill.run())
+      engine.runAndWait()
+    else:
+      print('Where Llama?')
+    self.state = 'idle'
+  
+  def print_state(self):
+    style = Style.NORMAL
+    if self.state == 'idle':
+      color = Fore.WHITE
+      style = Style.DIM
+    elif self.state == 'listening':
+      color = Fore.GREEN
+    elif self.state == 'processing':
+      color = Fore.BLUE
+    print(f'State: {color}{style}{self.state}{Style.RESET_ALL}')
     
   
 if __name__ == '__main__':

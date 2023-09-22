@@ -1,6 +1,6 @@
 from time import sleep
 import posix_ipc
-import pyttsx3
+#import pyttsx3
 from colorama import Fore, Style
 
 from orchestrator.core.base_skill import BaseSkill
@@ -10,11 +10,11 @@ import sys
 sys.path.append("..")
 from Piper import invoke_piper
 
-location = '/wilsonQueue'
+location = '/testQueue'
   
 mq = posix_ipc.MessageQueue(location, posix_ipc.O_CREAT, mode=0o666, max_message_size=1024, max_messages=10)
 skill_manager = skill_manager.SkillManager()
-engine = pyttsx3.init()
+#engine = pyttsx3.init()
 
 class Orchestrator:
   state = 'idle'
@@ -25,13 +25,15 @@ class Orchestrator:
       self.print_state()
       if self.state != 'processing' and mq.current_messages > 0:
         self.read_message()
-      if self.state == 'processing':
+      if self.state == 'processing' and self.prompt:
         self.execute_prompt()
-      sleep(4)
+      elif not self.prompt:
+        self.state = 'idle'
+      sleep(1)
     
   def read_message(self):
     msg, priority = mq.receive()
-    msg = msg.decode('utf-8')
+    msg = msg.decode('utf-8').lower()
     print('Received: ', msg)
     self.set_state_by_message(msg)
     if self.state == 'listening':
@@ -40,7 +42,7 @@ class Orchestrator:
   def set_state_by_message(self, msg: str):
     if 'wilson' in msg:
       self.state = 'listening'
-    if '[silence]' in msg:
+    if '[' in msg or '(' in msg:
       self.state = 'processing'
 
   def execute_prompt(self):
@@ -53,9 +55,12 @@ class Orchestrator:
         self.state = 'listening'
       else:
         self.tts(skill.run(self.prompt))
+        self.prompt = ''
         self.state = 'idle'
     else:
       print('Where Llama?')
+      self.prompt = ''
+      self.state = 'idle'
   
   def print_state(self):
     style = Style.NORMAL

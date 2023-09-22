@@ -3,32 +3,14 @@ import inspect
 from . import skill_manager
 import pyttsx3
 from colorama import Fore, Style
-# from ipcqueue import posixmq
-# from ipcqueue.serializers import RawSerializer
+import posix_ipc
 
-class TempMq:
-  call = 0
-  def get(self):
-    self.call += 1
-    if self.call == 1:
-      return 'Hey Wilson'
-    if self.call == 2:
-      return 'What is the time?'
-    if self.call == 3:
-      return '[SILENCE]'
-
-  def put(self, item):
-    pass
-
-  def qsize(self):
-    return 3 - self.call
-
-mq = TempMq()
-# mq = posixmq.Queue('/wilsonQueue', serializer=RawSerializer)
+location = "/testQueue"
+  
+mq = posix_ipc.MessageQueue(location, posix_ipc.O_CREAT, mode=0o666, max_message_size=1024, max_messages=10)
 
 skill_manager = skill_manager.SkillManager()
 engine = pyttsx3.init()
-
 class Orchestrator:
   state = 'idle'
   prompt = ''
@@ -36,7 +18,7 @@ class Orchestrator:
   def start(self):
     while True:
       self.print_state()
-      if self.state != 'processing' and mq.qsize() > 0:
+      if self.state != 'process' and mq.current_messages > 0:
         self.read_message()
       elif self.state == 'processing':
         self.execute_prompt()
@@ -44,7 +26,8 @@ class Orchestrator:
       sleep(4)
     
   def read_message(self):
-    msg = mq.get().lower()
+    msg, priority = mq.receive()
+    msg = msg.decode('utf-8')
     print('Received: ', msg)
     self.set_state_by_message(msg)
     if self.state == 'listening':

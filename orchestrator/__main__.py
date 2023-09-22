@@ -1,16 +1,16 @@
 from time import sleep
 import inspect
-from . import skill_manager
+import posix_ipc
 import pyttsx3
 from colorama import Fore, Style
-import posix_ipc
+from . import skill_manager
 
-location = "/testQueue"
+location = '/wilsonQueue'
   
 mq = posix_ipc.MessageQueue(location, posix_ipc.O_CREAT, mode=0o666, max_message_size=1024, max_messages=10)
-
 skill_manager = skill_manager.SkillManager()
 engine = pyttsx3.init()
+
 class Orchestrator:
   state = 'idle'
   prompt = ''

@@ -1,0 +1,6 @@
+#/bin/bash/
+
+# Create a named pipe (FIFO)
+mkfifo my_fifo
+
+./stream -m models/ggml-base.en.bin --step 4000 --length 8000 -c 0 -t 4 -ac 512 > my_fifo

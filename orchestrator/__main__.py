@@ -1,29 +1,13 @@
 from time import sleep
 import inspect
 from . import skill_manager
-# from ipcqueue import posixmq
-# from ipcqueue.serializers import RawSerializer
+from ipcqueue import posixmq
+from ipcqueue.serializers import RawSerializer
+import posix_ipc
 
-class TempMq:
-  call = 0
-  def get(self):
-    self.call += 1
-    if self.call == 1:
-      return 'Hey Wilson'
-    if self.call == 2:
-      return 'Can you please play `Can You Hear The Music` from the Oppenheimer Soundtrack on Spotify? WTF'
-    if self.call == 3:
-      return '[SILENCE]'
-
-  def put(self, item):
-    pass
-
-  def qsize(self):
-    return 3 - self.call
-
-location = 'temp'
-mq = TempMq()
-# mq = posixmq.Queue(location, serializer=RawSerializer)    
+location = "/testQueue"
+  
+mq = posix_ipc.MessageQueue(location, posix_ipc.O_CREAT, mode=0o666, max_message_size=1024, max_messages=10)
 
 class Orchestrator:
   state = 'idle'
@@ -33,20 +17,20 @@ class Orchestrator:
   def start(self):
     while True:
       print('State: ', self.state)
-      if self.state != 'process' and mq.qsize() > 0:
+      if self.state != 'process' and mq.current_messages > 0:
         self.read_message()
-      else:
+      elif self.prompt:
         print('Prompt: ', self.prompt)
         skill = self.skill_manager.check_skills(self.prompt)
         if skill:
           skill.run()
         # skills .run_task(self.prompt)
         self.state = 'idle'
-        break
-      sleep(0.5)
+      sleep(4)
     
   def read_message(self):
-    msg = mq.get().lower()
+    msg, priority = mq.receive()
+    msg = msg.decode('utf-8')
     print('Received: ', msg)
     self.set_state_by_message(msg)
     if self.state == 'listening':

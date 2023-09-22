@@ -9,6 +9,8 @@ from . import skill_manager
 import sys
 sys.path.append("..")
 from Piper import invoke_piper
+import shlex, subprocess
+
 
 location = '/testQueue'
   
@@ -88,10 +90,15 @@ class Orchestrator:
       color = Fore.BLUE
     print(f'State: {color}{style}{self.state}{Style.RESET_ALL}')
   
-  def tts(self, string: str):
+  def tts(self, msg: str):
     print(string)
-    # invoke_pi per.invoke_piper(skill.run(self.prompt), 'Piper/piper', 'voices/en_GB-northern_english_male-medium.onnx')
+    invoke_piper.invoke_piper(msg, 'Piper/piper', 'voices/en_GB-northern_english_male-medium.onnx')
   
 if __name__ == '__main__':
-  orchestrator = Orchestrator()
-  orchestrator.start()
+  try:
+    orchestrator = Orchestrator()
+    whisper = subprocess.Popen(['/usr/bin/bash', '-c' , 'whisper.cpp/stream -m whisper.cpp/models/ggml-base.en.bin --step 4000 --length 8000 -c 0 -t 4 -ac 512'])
+  #..
+    orchestrator.start()
+  finally:
+    whisper.terminate()

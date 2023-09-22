@@ -14,16 +14,22 @@ location = '/testQueue'
   
 mq = posix_ipc.MessageQueue(location, posix_ipc.O_CREAT, mode=0o666, max_message_size=1024, max_messages=10)
 skill_manager = skill_manager.SkillManager()
-#engine = pyttsx3.init()
 
+trash_messages = ['', 'crowd talking', 'foreign language', 'silence']
+debug = True
+
+def log_debug(msg: str):
+  if debug:
+    print(msg)
 class Orchestrator:
   state = 'idle'
   prompt = ''
+  trash_count = 0
 
   def start(self):
     while True:
       self.print_state()
-      if self.state != 'processing' and mq.current_messages > 0:
+      if self.state != 'processing':
         self.read_message()
       if self.state == 'processing' and self.prompt:
         self.execute_prompt()
@@ -32,17 +38,24 @@ class Orchestrator:
       sleep(1)
     
   def read_message(self):
-    msg, priority = mq.receive()
-    msg = msg.decode('utf-8').lower()
-    print('Received: ', msg)
-    self.set_state_by_message(msg)
-    if self.state == 'listening':
-      self.prompt += f' {msg}'
+    if mq.current_messages > 0:
+      msg, priority = mq.receive()
+      msg = msg.decode('utf-8').lower()
+      print('Received: ', msg)
+    else:
+      msg = ''
+    self.discriminate_stt(msg)
     
-  def set_state_by_message(self, msg: str):
-    if 'wilson' in msg:
+  def discriminate_stt(self, msg: str):
+    if self.state == 'idle' and 'wilson' in msg:
       self.state = 'listening'
-    if '[' in msg or '(' in msg:
+    if self.state == 'listening':
+      if not msg in trash_messages:
+        self.prompt += f' {msg}'
+      else:
+        self.trash_count += 1
+    if self.trash_count >= 2:
+      self.trash_count = 0
       self.state = 'processing'
 
   def execute_prompt(self):
@@ -58,9 +71,11 @@ class Orchestrator:
         self.prompt = ''
         self.state = 'idle'
     else:
-      print('Where Llama?')
+      result = subprocess.run(['./llama.cpp/main', f'-t 2 -m llama-7b.ggmlv3.q2_K.bin --color -c 4096 --temp 0.7 --repeat_penalty 1.1 -n -1 -p "### Input:{self.prompt}\n### Response:"'])
+      self.tts(result)
       self.prompt = ''
       self.state = 'idle'
+  
   
   def print_state(self):
     style = Style.NORMAL
@@ -75,7 +90,7 @@ class Orchestrator:
   
   def tts(self, string: str):
     print(string)
-    # invoke_piper.invoke_piper(skill.run(self.prompt), 'Piper/piper', 'voices/en_GB-northern_english_male-medium.onnx')
+    # invoke_pi per.invoke_piper(skill.run(self.prompt), 'Piper/piper', 'voices/en_GB-northern_english_male-medium.onnx')
   
 if __name__ == '__main__':
   orchestrator = Orchestrator()

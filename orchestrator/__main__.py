@@ -1,9 +1,14 @@
 from time import sleep
-import inspect
 import posix_ipc
 import pyttsx3
 from colorama import Fore, Style
+
+from orchestrator.core.base_skill import BaseSkill
 from . import skill_manager
+
+import sys
+sys.path.append("..")
+from Piper import invoke_piper
 
 location = '/wilsonQueue'
   
@@ -18,11 +23,10 @@ class Orchestrator:
   def start(self):
     while True:
       self.print_state()
-      if self.state != 'process' and mq.current_messages > 0:
+      if self.state != 'processing' and mq.current_messages > 0:
         self.read_message()
-      elif self.state == 'processing':
+      if self.state == 'processing':
         self.execute_prompt()
-        break
       sleep(4)
     
   def read_message(self):
@@ -31,7 +35,7 @@ class Orchestrator:
     print('Received: ', msg)
     self.set_state_by_message(msg)
     if self.state == 'listening':
-      self.prompt += '\n' + msg
+      self.prompt += f' {msg}'
     
   def set_state_by_message(self, msg: str):
     if 'wilson' in msg:
@@ -41,14 +45,17 @@ class Orchestrator:
 
   def execute_prompt(self):
     print(f'Prompt Debug:\n{Style.DIM}{self.prompt}\n{Style.RESET_ALL}')
-    skill = skill_manager.check_skills(self.prompt)
+    skill: BaseSkill = skill_manager.check_skills(self.prompt)
     if skill:
       print('Executing Skill..')
-      engine.say(skill.run())
-      engine.runAndWait()
+      if not skill.hasParams(self.prompt):
+        self.tts(skill.query())
+        self.state = 'listening'
+      else:
+        self.tts(skill.run(self.prompt))
+        self.state = 'idle'
     else:
       print('Where Llama?')
-    self.state = 'idle'
   
   def print_state(self):
     style = Style.NORMAL
@@ -60,7 +67,10 @@ class Orchestrator:
     elif self.state == 'processing':
       color = Fore.BLUE
     print(f'State: {color}{style}{self.state}{Style.RESET_ALL}')
-    
+  
+  def tts(self, string: str):
+    print(string)
+    # invoke_piper.invoke_piper(skill.run(self.prompt), 'Piper/piper', 'voices/en_GB-northern_english_male-medium.onnx')
   
 if __name__ == '__main__':
   orchestrator = Orchestrator()

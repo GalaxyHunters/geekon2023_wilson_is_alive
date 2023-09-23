@@ -1,3 +1,5 @@
+# TODO: clean it up
+
 import posix_ipc
 from time import sleep
 
